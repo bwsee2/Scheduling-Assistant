@@ -18,13 +18,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 CLIENT_SECRETS_FILE = "client_secret.json"
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
-IS_RENDER = os.environ.get("RENDER", False)
-REDIRECT_URI = (
-    "https://scheduling-assistant-blan.onrender.com/oauth2callback"
-    if IS_RENDER else
-    "http://localhost:8080/oauth2callback"
-)
-
+REDIRECT_URI = "https://scheduling-assistant-blan.onrender.com/oauth2callback"
 
 
 

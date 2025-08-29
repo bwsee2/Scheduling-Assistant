@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Schedule Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Left Side - Week View -->
+        <div class="week-section">
+            <div class="week-header">
+                <h2>Schedule Assistant</h2>
+                <div class="search-container">
+                    <input type="text" id="query" placeholder="Find available time slots..." onkeypress="handleKeyPress(event)" />
+                    <button onclick="findTimeSlots()">Search</button>
+                </div>
+            </div>
+            
+            <div id="week-results">
+                <!-- Week days will be populated here -->
+            </div>
+        </div>
+
+        <!-- Right Side - Calendar -->
+        <div class="calendar-section">
+            <div class="section-title">Calendar View</div>
+            <div class="calendar-header">
+                <button onclick="previousMonth()">‹</button>
+                <h3 id="current-month">August 2025</h3>
+                <button onclick="nextMonth()">›</button>
+            </div>
+            <div class="calendar-legend" id="calendar-legend">
+                <!-- Calendar legend will be populated here -->
+            </div>
+            <div class="calendar-grid" id="calendar">
+                <!-- Calendar will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+        
+        // Load events when page loads
+        window.onload = function() {
+            loadEvents();
+            renderCalendar();
+            // Don't load week view by default - show clean state
+            showDefaultState();
+        };
+
+        function showDefaultState() {
+            const weekResults = document.getElementById('week-results');
+            weekResults.innerHTML = `
+                <div class="default-state">
+                    <div class="search-prompt">
+                        <h3>Schedule Assistant</h3>
+                        <p>Find available time slots in your calendar</p>
+                        <div class="example-queries">
+                            <p><strong>Try these examples:</strong></p>
+                            <ul>
+                                <li>"find me some time tomorrow"</li>
+                                <li>"show me next week"</li>
+                                <li>"next monday availability"</li>
+                                <li>"give me times starting at 11 am"</li>
+                                <li>"2 days from now"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                findTimeSlots();
+            }
+        }
+
+        function loadWeekView() {
+            // Generate a week view with all available time slots
+            const today = new Date();
+            let html = '<div class="week-container">';
+            
+            for (let i = 0; i < 7; i++) {
+                const currentDay = new Date(today);
+                currentDay.setDate(today.getDate() + i);
+                const dateStr = currentDay.toISOString().split('T')[0];
+                
+                const dayName = currentDay.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+                
+                const isToday = i === 0;
+                const isTomorrow = i === 1;
+                
+                // Generate all available time slots for this day (9 AM - 5 PM, 30-minute intervals)
+                const timeSlots = generateTimeSlotsForDay(currentDay, isToday);
+                
+                const isExpanded = isToday || isTomorrow || i < 3;
+                
+                html += `<div class="day-group ${isExpanded ? 'expanded' : 'collapsed'}">
+                    <div class="day-header" onclick="toggleDayGroup(this)">
+                        <div class="day-info">
+                            <h4>📅 ${dayName} ${isToday ? '(Today)' : isTomorrow ? '(Tomorrow)' : ''}</h4>
+                            <span class="day-date">${currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        <div class="day-controls">
+                            <span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>
+                            <span class="slot-count">(${timeSlots.length} slots)</span>
+                        </div>
+                    </div>
+                    <div class="day-slots" style="display: ${isExpanded ? 'block' : 'none'};">
+                        <div class="time-slots-grid">
+                            ${timeSlots.map(slot => `
+                                <div class="time-slot">
+                                    <strong>${slot.startTime} - ${slot.endTime}</strong>
+                                    <em>(30 minutes)</em>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }
+            
+            html += '</div>';
+            document.getElementById('week-results').innerHTML = html;
+        }
+
+        function generateTimeSlotsForDay(day, isToday) {
+            const slots = [];
+            const startHour = 9; // 9 AM
+            const endHour = 17; // 5 PM
+            const now = new Date();
+            
+            for (let hour = startHour; hour < endHour; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const slotStart = new Date(day);
+                    slotStart.setHours(hour, minute, 0, 0);
+                    
+                    const slotEnd = new Date(slotStart);
+                    slotEnd.setMinutes(slotStart.getMinutes() + 30);
+                    
+                    // If it's today, only show future slots
+                    if (isToday && slotStart <= now) {
+                        continue;
+                    }
+                    
+                    const startTime = slotStart.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    
+                    const endTime = slotEnd.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    
+                    slots.push({
+                        startTime: startTime,
+                        endTime: endTime
+                    });
+                }
+            }
+            
+            return slots;
+        }
+
+        function findTimeSlots() {
+            const query = document.getElementById('query').value;
+            if (!query) {
+                // If no query, show all available slots
+                loadWeekView();
+                return;
+            }
+            
+            document.getElementById('week-results').innerHTML = '<div class="loading">🤖 AI Agent is analyzing your request...</div>';
+            
+            fetch('/find_slots', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayFilteredWeekResults(data, query);
+                } else {
+                    document.getElementById('week-results').innerHTML = `<div class="error">❌ Error: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('week-results').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            });
+        }
+
+        function displayFilteredWeekResults(data, query) {
+            let html = '';
+            
+
+            
+            // Display agent insights
+            if (data.agent_insights && data.agent_insights.contextual_message) {
+                html += `<div class="agent-insights">
+                    <div class="agent-message">${data.agent_insights.contextual_message}</div>
+                    ${data.agent_insights.suggestions && data.agent_insights.suggestions.length > 0 ? 
+                        `<div class="agent-suggestions">
+                            <strong>💡 Tips:</strong>
+                            <ul>${data.agent_insights.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+                        </div>` : ''
+                    }
+                    <div class="agent-stats">
+                        <small>🤖 AI has learned ${data.agent_insights.patterns_learned || 0} patterns from ${data.agent_insights.successful_queries || 0} queries</small>
+                    </div>
+                </div>`;
+            }
+            
+            // Query analysis removed as requested
+            
+            // Parse time constraints from the query
+            const timeConstraints = parseTimeConstraints(query);
+            
+            // Create week container
+            html += `<div class="week-container">`;
+            
+            // Determine the number of days to show based on the query
+            let numDays = 1; // Default
+            if (query.toLowerCase().includes('week') || query.toLowerCase().includes('7 days')) {
+                numDays = 7;
+            } else if (query.toLowerCase().includes('2 days') || query.toLowerCase().includes('two days')) {
+                numDays = 2;
+            } else if (query.toLowerCase().includes('3 days') || query.toLowerCase().includes('three days')) {
+                numDays = 3;
+            } else if (query.toLowerCase().includes('5 days') || query.toLowerCase().includes('five days')) {
+                numDays = 5;
+            } else if (query.toLowerCase().includes('month')) {
+                numDays = 30;
+            } else if (query.toLowerCase().includes('weekend')) {
+                numDays = 2;
+            } else if (query.toLowerCase().includes('next monday') || 
+                       query.toLowerCase().includes('next tuesday') || 
+                       query.toLowerCase().includes('next wednesday') || 
+                       query.toLowerCase().includes('next thursday') || 
+                       query.toLowerCase().includes('next friday') || 
+                       query.toLowerCase().includes('next saturday') || 
+                       query.toLowerCase().includes('next sunday')) {
+                numDays = 1; // Single day for next [day] queries
+            }
+            
+
+            
+            // Use the actual slots from backend to determine the correct date range
+            if (data.slots && data.slots.length > 0) {
+                // Parse the first slot's start time to get the correct start date
+                const firstSlot = data.slots[0];
+                const startDateStr = firstSlot.start_time.split(' ')[0]; // Get just the date part
+                
+                // Create date in local timezone to avoid timezone offset issues
+                const [year, month, day] = startDateStr.split('-').map(Number);
+                const startDate = new Date(year, month - 1, day); // month is 0-indexed
+                
+
+                
+                // For "today" requests, use the actual current date
+                // For "tomorrow" requests, use tomorrow as the base date
+                // For "next [day]" requests, use the backend calculated date
+                let baseDate = startDate;
+                if (query.toLowerCase().includes('today')) {
+                    baseDate = new Date();
+                } else if (query.toLowerCase().includes('tomorrow')) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    baseDate = tomorrow;
+                } else if (query.toLowerCase().includes('next monday') || 
+                           query.toLowerCase().includes('next tuesday') || 
+                           query.toLowerCase().includes('next wednesday') || 
+                           query.toLowerCase().includes('next thursday') || 
+                           query.toLowerCase().includes('next friday') || 
+                           query.toLowerCase().includes('next saturday') || 
+                           query.toLowerCase().includes('next sunday')) {
+                    // Use the backend calculated date for next [day] queries
+                    baseDate = startDate;
+                }
+                
+                for (let i = 0; i < numDays; i++) {
+                    const currentDay = new Date(baseDate);
+                    currentDay.setDate(baseDate.getDate() + i);
+                    const dateStr = currentDay.toISOString().split('T')[0];
+                    
+                    const dayName = currentDay.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                    
+                    const today = new Date();
+                    const isToday = currentDay.toDateString() === today.toDateString();
+                    const isTomorrow = currentDay.toDateString() === new Date(today.getTime() + 24*60*60*1000).toDateString();
+                    
+                    // Generate filtered time slots based on constraints and events
+                    const timeSlots = generateFilteredTimeSlotsForDay(currentDay, isToday, timeConstraints, data.events || []);
+                    
+                    // Auto-expand first few days or if only showing 1-2 days
+                    const isExpanded = isToday || isTomorrow || i < 3 || numDays <= 2;
+                    
+                    html += `<div class="day-group ${isExpanded ? 'expanded' : 'collapsed'}">
+                        <div class="day-header" onclick="toggleDayGroup(this)">
+                            <div class="day-info">
+                                <h4>📅 ${dayName} ${isToday ? '(Today)' : isTomorrow ? '(Tomorrow)' : ''}</h4>
+                                <span class="day-date">${currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            </div>
+                            <div class="day-controls">
+                                <span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>
+                                <span class="slot-count">(${timeSlots.length} slots)</span>
+                            </div>
+                        </div>
+                        <div class="day-slots" style="display: ${isExpanded ? 'block' : 'none'};">
+                            ${timeSlots.length > 0 ? 
+                                `<div class="time-slots-grid">
+                                    ${timeSlots.map(slot => `
+                                        <div class="time-slot">
+                                            <strong>${slot.startTime} - ${slot.endTime}</strong>
+                                            <em>(30 minutes)</em>
+                                        </div>
+                                    `).join('')}
+                                </div>` : 
+                                `<div class="no-slots">No available slots for this day</div>`
+                            }
+                        </div>
+                    </div>`;
+                }
+            } else {
+                // Fallback to original logic if no slots
+                const today = new Date();
+                
+                // Determine the starting day based on the query
+                let startDayOffset = 0;
+                if (query.toLowerCase().includes('tomorrow')) {
+                    startDayOffset = 1; // Start from tomorrow
+                } else if (query.toLowerCase().includes('next monday')) {
+                    // JavaScript: 0=Sunday, 1=Monday, 2=Tuesday, etc.
+                    // We want Monday (1), so calculate days until next Monday
+                    const daysUntilMonday = (1 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilMonday === 0 ? 7 : daysUntilMonday;
+                } else if (query.toLowerCase().includes('next tuesday')) {
+                    const daysUntilTuesday = (2 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilTuesday === 0 ? 7 : daysUntilTuesday;
+                } else if (query.toLowerCase().includes('next wednesday')) {
+                    const daysUntilWednesday = (3 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilWednesday === 0 ? 7 : daysUntilWednesday;
+                } else if (query.toLowerCase().includes('next thursday')) {
+                    const daysUntilThursday = (4 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilThursday === 0 ? 7 : daysUntilThursday;
+                } else if (query.toLowerCase().includes('next friday')) {
+                    const daysUntilFriday = (5 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilFriday === 0 ? 7 : daysUntilFriday;
+                } else if (query.toLowerCase().includes('next saturday')) {
+                    const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilSaturday === 0 ? 7 : daysUntilSaturday;
+                } else if (query.toLowerCase().includes('next sunday')) {
+                    const daysUntilSunday = (0 - today.getDay() + 7) % 7;
+                    startDayOffset = daysUntilSunday === 0 ? 7 : daysUntilSunday;
+                }
+                
+                for (let i = 0; i < numDays; i++) {
+                    const currentDay = new Date(today);
+                    currentDay.setDate(today.getDate() + startDayOffset + i);
+                    const dateStr = currentDay.toISOString().split('T')[0];
+                    
+                    const dayName = currentDay.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                    
+                    // Calculate if this is today or tomorrow relative to the actual current date
+                    const actualToday = new Date();
+                    const actualTomorrow = new Date(actualToday);
+                    actualTomorrow.setDate(actualToday.getDate() + 1);
+                    
+                    const isToday = currentDay.toDateString() === actualToday.toDateString();
+                    const isTomorrow = currentDay.toDateString() === actualTomorrow.toDateString();
+                    
+                    // Generate filtered time slots based on constraints and events
+                    const timeSlots = generateFilteredTimeSlotsForDay(currentDay, isToday, timeConstraints, data.events || []);
+                    
+                    // Auto-expand first few days or if only showing 1-2 days
+                    const isExpanded = isToday || isTomorrow || i < 3 || numDays <= 2;
+                    
+                    html += `<div class="day-group ${isExpanded ? 'expanded' : 'collapsed'}">
+                        <div class="day-header" onclick="toggleDayGroup(this)">
+                            <div class="day-info">
+                                <h4>📅 ${dayName} ${isToday ? '(Today)' : isTomorrow ? '(Tomorrow)' : ''}</h4>
+                                <span class="day-date">${currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            </div>
+                            <div class="day-controls">
+                                <span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>
+                                <span class="slot-count">(${timeSlots.length} slots)</span>
+                            </div>
+                        </div>
+                        <div class="day-slots" style="display: ${isExpanded ? 'block' : 'none'};">
+                            ${timeSlots.length > 0 ? 
+                                `<div class="time-slots-grid">
+                                    ${timeSlots.map(slot => `
+                                        <div class="time-slot">
+                                            <strong>${slot.startTime} - ${slot.endTime}</strong>
+                                            <em>(30 minutes)</em>
+                                        </div>
+                                    `).join('')}
+                                </div>` : 
+                                `<div class="no-slots">No available slots for this day</div>`
+                            }
+                        </div>
+                    </div>`;
+                }
+            }
+            
+            html += `</div>`;
+            
+            document.getElementById('week-results').innerHTML = html;
+        }
+
+        function parseTimeConstraints(query) {
+            const queryLower = query.toLowerCase();
+            const constraints = {
+                startTime: null,
+                endTime: null
+            };
+            
+            // Parse "starting at X" or "from X"
+            const startMatch = queryLower.match(/(?:starting at|from|after)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+            if (startMatch) {
+                let hour = parseInt(startMatch[1]);
+                const minute = startMatch[2] ? parseInt(startMatch[2]) : 0;
+                const period = startMatch[3];
+                
+                if (period === 'pm' && hour !== 12) {
+                    hour += 12;
+                } else if (period === 'am' && hour === 12) {
+                    hour = 0;
+                }
+                
+                constraints.startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            }
+            
+            // Parse "between X and Y"
+            const betweenMatch = queryLower.match(/between\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+and\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+            if (betweenMatch) {
+                // Start time
+                let startHour = parseInt(betweenMatch[1]);
+                const startMinute = betweenMatch[2] ? parseInt(betweenMatch[2]) : 0;
+                const startPeriod = betweenMatch[3];
+                
+                if (startPeriod === 'pm' && startHour !== 12) {
+                    startHour += 12;
+                } else if (startPeriod === 'am' && startHour === 12) {
+                    startHour = 0;
+                }
+                
+                constraints.startTime = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+                
+                // End time
+                let endHour = parseInt(betweenMatch[4]);
+                const endMinute = betweenMatch[5] ? parseInt(betweenMatch[5]) : 0;
+                const endPeriod = betweenMatch[6];
+                
+                if (endPeriod === 'pm' && endHour !== 12) {
+                    endHour += 12;
+                } else if (endPeriod === 'am' && endHour === 12) {
+                    endHour = 0;
+                }
+                
+                constraints.endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+            }
+            
+            // Parse "until X" or "before X"
+            const endMatch = queryLower.match(/(?:until|before)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+            if (endMatch && !constraints.endTime) {
+                let hour = parseInt(endMatch[1]);
+                const minute = endMatch[2] ? parseInt(endMatch[2]) : 0;
+                const period = endMatch[3];
+                
+                if (period === 'pm' && hour !== 12) {
+                    hour += 12;
+                } else if (period === 'am' && hour === 12) {
+                    hour = 0;
+                }
+                
+                constraints.endTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            }
+            
+            return constraints;
+        }
+
+        function generateFilteredTimeSlotsForDay(day, isToday, constraints, events = []) {
+            const slots = [];
+            const startHour = 9; // 9 AM
+            const endHour = 17; // 5 PM
+            const now = new Date();
+            
+            // Apply time constraints
+            let effectiveStartHour = startHour;
+            let effectiveEndHour = endHour;
+            
+            if (constraints.startTime) {
+                const [hour, minute] = constraints.startTime.split(':').map(Number);
+                effectiveStartHour = hour;
+            }
+            
+            if (constraints.endTime) {
+                const [hour, minute] = constraints.endTime.split(':').map(Number);
+                effectiveEndHour = hour;
+            }
+            
+            // Convert events to time ranges for this day
+            const dayEvents = events.filter(event => {
+                const eventDate = new Date(event.start);
+                return eventDate.toDateString() === day.toDateString();
+            });
+            
+            console.log(`DEBUG: Found ${dayEvents.length} events for ${day.toDateString()}:`, dayEvents);
+            
+            for (let hour = effectiveStartHour; hour < effectiveEndHour; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const slotStart = new Date(day);
+                    slotStart.setHours(hour, minute, 0, 0);
+                    
+                    const slotEnd = new Date(slotStart);
+                    slotEnd.setMinutes(slotStart.getMinutes() + 30);
+                    
+                    // If it's today, only show future slots
+                    if (isToday && slotStart <= now) {
+                        continue;
+                    }
+                    
+                    // Check if this slot conflicts with any events
+                    let slotConflicts = false;
+                    for (const event of dayEvents) {
+                        const eventStart = new Date(event.start);
+                        const eventEnd = new Date(event.end);
+                        
+                        // Check if the slot overlaps with the event
+                        if (slotStart < eventEnd && slotEnd > eventStart) {
+                            console.log(`DEBUG: Slot ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()} conflicts with event ${event.summary} ${eventStart.toLocaleTimeString()}-${eventEnd.toLocaleTimeString()}`);
+                            slotConflicts = true;
+                            break;
+                        }
+                    }
+                    
+                    // Only add slot if it doesn't conflict with events
+                    if (!slotConflicts) {
+                        const startTime = slotStart.toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+                        
+                        const endTime = slotEnd.toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+                        
+                        slots.push({
+                            startTime: startTime,
+                            endTime: endTime
+                        });
+                    }
+                }
+            }
+            
+            return slots;
+        }
+
+        function toggleDayGroup(header) {
+            const dayGroup = header.parentElement;
+            const daySlots = dayGroup.querySelector('.day-slots');
+            const toggleIcon = header.querySelector('.toggle-icon');
+            
+            if (daySlots.style.display === 'none') {
+                daySlots.style.display = 'block';
+                toggleIcon.textContent = '▼';
+                dayGroup.classList.remove('collapsed');
+                dayGroup.classList.add('expanded');
+            } else {
+                daySlots.style.display = 'none';
+                toggleIcon.textContent = '▶';
+                dayGroup.classList.remove('expanded');
+                dayGroup.classList.add('collapsed');
+            }
+        }
+
+        function formatTime12Hour(time) {
+            const [hours, minutes] = time.split(':');
+            let formattedHours = parseInt(hours, 10);
+            const period = formattedHours >= 12 ? 'PM' : 'AM';
+
+            if (formattedHours === 0) {
+                formattedHours = 12;
+            } else if (formattedHours > 12) {
+                formattedHours -= 12;
+            }
+
+            return `${formattedHours}:${minutes} ${period}`;
+        }
+
+        // Calendar functions
+        function loadEvents() {
+            fetch('/get_events')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderCalendar(data.events);
+                        renderCalendarLegend(data.events);
+                    }
+                })
+                .catch(error => console.error('Error loading events:', error));
+        }
+
+        function renderCalendar(events = []) {
+            const calendar = document.getElementById('calendar');
+            const monthYear = document.getElementById('current-month');
+            
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            monthYear.textContent = currentDate.toLocaleDateString('en-US', { 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            
+            let html = '';
+            
+            // Weekday headers
+            const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            weekdays.forEach(day => {
+                html += `<div class="weekday-header">${day}</div>`;
+            });
+            
+            // Calendar days
+            for (let i = 0; i < 42; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                
+                const isCurrentMonth = currentDate.getMonth() === month;
+                const isToday = currentDate.toDateString() === new Date().toDateString();
+                
+                let dayClass = 'calendar-day';
+                if (!isCurrentMonth) dayClass += ' other-month';
+                if (isToday) dayClass += ' today';
+                
+                html += `<div class="${dayClass}">
+                    <div class="day-number">${currentDate.getDate()}</div>
+                    <div class="events-container">
+                        ${getEventsForDate(currentDate, events)}
+                    </div>
+                </div>`;
+            }
+            
+            calendar.innerHTML = html;
+        }
+
+        function getEventsForDate(date, events) {
+            const dateStr = date.toISOString().split('T')[0];
+            const dayEvents = events.filter(event => {
+                const eventDate = new Date(event.start);
+                return eventDate.toISOString().split('T')[0] === dateStr;
+            });
+            
+            return dayEvents.map(event => {
+                let timeDisplay = '';
+                // Only show time for events with specific times (not all-day events)
+                if (event.start.includes('T')) {
+                    const startTime = new Date(event.start).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    timeDisplay = `${startTime} `;
+                }
+                
+                // Truncate long event names to fit in calendar
+                const eventTitle = event.summary.length > 20 ? 
+                    event.summary.substring(0, 17) + '...' : 
+                    event.summary;
+                
+                // Determine if this is an external calendar event
+                const isPrimary = event.calendar_id === 'primary' || event.calendar_id === event.calendar_name;
+                const isExternal = !isPrimary;
+                
+                // Use calendar color if available, otherwise use default colors
+                const backgroundColor = event.calendar_color || (isExternal ? '#28a745' : '#007bff');
+                const borderColor = isExternal ? '#20c997' : '#0056b3';
+                
+                // Create calendar indicator
+                const calendarIndicator = isExternal ? '<span class="external-calendar">📅</span>' : '';
+                
+                // Create tooltip with calendar name
+                const tooltip = `${event.summary} (${event.calendar_name || 'Primary Calendar'})`;
+                
+                return `<div class="event" style="background-color: ${backgroundColor}; border-left-color: ${borderColor};" title="${tooltip}">${calendarIndicator}${timeDisplay}${eventTitle}</div>`;
+            }).join('');
+        }
+
+        function previousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            loadEvents(); // Reload events when changing months
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            loadEvents(); // Reload events when changing months
+        }
+
+        function renderCalendarLegend(events) {
+            const legend = document.getElementById('calendar-legend');
+            
+            // Get unique calendars from events
+            const calendars = new Map();
+            events.forEach(event => {
+                const calendarName = event.calendar_name || 'Primary Calendar';
+                const calendarColor = event.calendar_color || '#007bff';
+                const calendarId = event.calendar_id;
+                
+                if (!calendars.has(calendarId)) {
+                    calendars.set(calendarId, {
+                        name: calendarName,
+                        color: calendarColor,
+                        id: calendarId
+                    });
+                }
+            });
+            
+            // Create legend HTML
+            let legendHtml = '<div class="legend-title">Calendars:</div>';
+            calendars.forEach(calendar => {
+                legendHtml += `
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: ${calendar.color};"></span>
+                        <span class="legend-name">${calendar.name}</span>
+                    </div>
+                `;
+            });
+            
+            legend.innerHTML = legendHtml;
+        }
+    </script>
+</body>
+</html> 

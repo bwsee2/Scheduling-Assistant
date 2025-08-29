@@ -117,7 +117,7 @@ scheduling_agent = SchedulingAgent()
 @app.route('/')
 def index():
     if 'credentials' not in session:
-        return '<a href="/authorize">Connect Google Calendar</a>'
+        return render_template('landing.html')
     return render_template('index.html')
 
 @app.route('/test')
@@ -157,6 +157,12 @@ def callback():
         return redirect(url_for('index'))
     except Exception as e:
         return f"Error during authorization: {str(e)}"
+
+@app.route('/logout')
+def logout():
+    """Clear session and redirect to landing page"""
+    session.clear()
+    return redirect(url_for('index'))
 
 
 
@@ -501,6 +507,7 @@ def simple_query_parser(query):
         end_time = start_time + datetime.timedelta(days=1)
         num_days = 1
         time_range = 'next_monday'
+        print(f"DEBUG: Query 'next monday' - Next Monday calculated: {next_monday.strftime('%Y-%m-%d %A')}")
         
     elif 'next tuesday' in query_lower:
         # Next Tuesday (weekday 1)

@@ -9,7 +9,10 @@
         <!-- Left Side - Week View -->
         <div class="week-section">
             <div class="week-header">
-                <h2>Schedule Assistant</h2>
+                <div class="header-top">
+                    <h2>Schedule Assistant</h2>
+                    <a href="/logout" class="logout-button" title="Disconnect Google Calendar">🔓 Logout</a>
+                </div>
                 <div class="search-container">
                     <input type="text" id="query" placeholder="Find available time slots..." onkeypress="handleKeyPress(event)" />
                     <button onclick="findTimeSlots()">Search</button>
@@ -344,27 +347,43 @@
                 if (query.toLowerCase().includes('tomorrow')) {
                     startDayOffset = 1; // Start from tomorrow
                 } else if (query.toLowerCase().includes('next monday')) {
-                    // JavaScript: 0=Sunday, 1=Monday, 2=Tuesday, etc.
-                    // We want Monday (1), so calculate days until next Monday
-                    const daysUntilMonday = (1 - today.getDay() + 7) % 7;
+                    // Convert JavaScript day (0=Sunday) to Python weekday (0=Monday)
+                    // JavaScript: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+                    // Python: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday
+                    const jsDay = today.getDay(); // 0=Sunday, 1=Monday, etc.
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1; // Convert to Python weekday
+                    const daysUntilMonday = (0 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilMonday === 0 ? 7 : daysUntilMonday;
+                    console.log(`DEBUG: Today is ${today.toDateString()} (JS day ${jsDay}, Python weekday ${pythonWeekday}), days until Monday: ${daysUntilMonday}, startDayOffset: ${startDayOffset}`);
                 } else if (query.toLowerCase().includes('next tuesday')) {
-                    const daysUntilTuesday = (2 - today.getDay() + 7) % 7;
+                    const jsDay = today.getDay();
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
+                    const daysUntilTuesday = (1 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilTuesday === 0 ? 7 : daysUntilTuesday;
                 } else if (query.toLowerCase().includes('next wednesday')) {
-                    const daysUntilWednesday = (3 - today.getDay() + 7) % 7;
+                    const jsDay = today.getDay();
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
+                    const daysUntilWednesday = (2 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilWednesday === 0 ? 7 : daysUntilWednesday;
                 } else if (query.toLowerCase().includes('next thursday')) {
-                    const daysUntilThursday = (4 - today.getDay() + 7) % 7;
+                    const jsDay = today.getDay();
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
+                    const daysUntilThursday = (3 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilThursday === 0 ? 7 : daysUntilThursday;
                 } else if (query.toLowerCase().includes('next friday')) {
-                    const daysUntilFriday = (5 - today.getDay() + 7) % 7;
+                    const jsDay = today.getDay();
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
+                    const daysUntilFriday = (4 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilFriday === 0 ? 7 : daysUntilFriday;
                 } else if (query.toLowerCase().includes('next saturday')) {
-                    const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
+                    const jsDay = today.getDay();
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
+                    const daysUntilSaturday = (5 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilSaturday === 0 ? 7 : daysUntilSaturday;
                 } else if (query.toLowerCase().includes('next sunday')) {
-                    const daysUntilSunday = (0 - today.getDay() + 7) % 7;
+                    const jsDay = today.getDay();
+                    const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
+                    const daysUntilSunday = (6 - pythonWeekday + 7) % 7;
                     startDayOffset = daysUntilSunday === 0 ? 7 : daysUntilSunday;
                 }
                 
@@ -372,6 +391,10 @@
                     const currentDay = new Date(today);
                     currentDay.setDate(today.getDate() + startDayOffset + i);
                     const dateStr = currentDay.toISOString().split('T')[0];
+                    
+                    if (query.toLowerCase().includes('next monday')) {
+                        console.log(`DEBUG: Day ${i}: ${currentDay.toDateString()} (${currentDay.toLocaleDateString('en-US', { weekday: 'long' })})`);
+                    }
                     
                     const dayName = currentDay.toLocaleDateString('en-US', { 
                         weekday: 'long', 

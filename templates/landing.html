@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Assistant - Smart Calendar Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .landing-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .landing-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 60px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .landing-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 15px;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #718096;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .connect-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .connect-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .security-note {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border-left: 4px solid #48bb78;
+        }
+
+        .security-note h4 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .security-note p {
+            color: #718096;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .example-queries {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+
+        .example-queries h4 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .query-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .query-example {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+            color: #4a5568;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .landing-card {
+                padding: 40px 30px;
+                margin: 20px;
+            }
+
+            .title {
+                font-size: 2rem;
+            }
+
+            .query-examples {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="landing-container">
+        <div class="landing-card">
+            <div class="logo">📅</div>
+            <h1 class="title">Schedule Assistant</h1>
+            <p class="subtitle">
+                Find available time slots in your calendar using natural language. 
+                Simply ask questions like "find me some time tomorrow" or "next monday availability".
+            </p>
+
+            <a href="/authorize" class="connect-button">
+                🔗 Connect Google Calendar
+            </a>
+
+            <div class="example-queries">
+                <h4>💡 Try these queries after connecting:</h4>
+                <div class="query-examples">
+                    <div class="query-example">"find me some time tomorrow"</div>
+                    <div class="query-example">"show me next week"</div>
+                    <div class="query-example">"next monday availability"</div>
+                    <div class="query-example">"give me times starting at 11 am"</div>
+                    <div class="query-example">"2 days from now"</div>
+                    <div class="query-example">"this weekend"</div>
+                </div>
+            </div>
+
+            <div class="security-note">
+                <h4>🔒 Your Privacy & Security</h4>
+                <p>
+                    We only request read-only access to your Google Calendar. Your data stays with Google, 
+                    and we never store your personal information. You can revoke access at any time 
+                    through your Google Account settings.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -7,6 +7,7 @@ from google.oauth2.credentials import Credentials
 import re
 from collections import defaultdict
 import time
+import json
 
 
 
@@ -126,20 +127,30 @@ def test_css():
 
 @app.route('/authorize')
 def authorize():
-    client_config = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI)
+    if "GOOGLE_CLIENT_SECRET_JSON" in os.environ:
+    # Render or other production environment
+        client_config = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+    )
+    else:
+    # Local development
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
     auth_url, state = flow.authorization_url(prompt='consent')
     session['state'] = state
     return redirect(auth_url)
+
 
 @app.route('/oauth2callback')
 def callback():
     try:
         state = session['state']
-        client_config = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,
@@ -156,9 +167,10 @@ def callback():
             'client_secret': credentials.client_secret,
             'scopes': credentials.scopes
         }
+
         return redirect(url_for('index'))
     except Exception as e:
-        return f"Error during authorization: {str(e)}"
+        return f"<h2>Error during callback:</h2><pre>{str(e)}</pre>"
 
 @app.route('/logout')
 def logout():

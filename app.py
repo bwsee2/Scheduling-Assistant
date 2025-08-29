@@ -126,6 +126,7 @@ def test_css():
 
 @app.route('/authorize')
 def authorize():
+    client_config = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE,
         scopes=SCOPES,
@@ -138,6 +139,7 @@ def authorize():
 def callback():
     try:
         state = session['state']
+        client_config = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,

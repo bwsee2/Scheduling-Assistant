@@ -213,15 +213,20 @@ def get_calendar_events():
     """Get calendar events from all available Google Calendars"""
     global _calendar_cache, _cache_timestamp
     
+    print("DEBUG: get_calendar_events() called")
+    
     # Check if we have recent cached data
     current_time = time.time()
     if current_time - _cache_timestamp < CACHE_DURATION and _calendar_cache:
+        print(f"DEBUG: Returning {len(_calendar_cache)} cached events")
         return _calendar_cache.copy()
     
     try:
         if 'credentials' not in session:
+            print("DEBUG: No credentials in session")
             return []
         
+        print("DEBUG: Building credentials and service")
         creds = session['credentials']
         credentials = Credentials(**creds)
         service = build('calendar', 'v3', credentials=credentials)
@@ -232,12 +237,16 @@ def get_calendar_events():
         # End 2 years from now
         end_time = now + datetime.timedelta(days=730)
         
+        print(f"DEBUG: Fetching calendars from {start_time} to {end_time}")
+        
         # Get list of all available calendars
         calendar_list = service.calendarList().list().execute()
         calendars = calendar_list.get('items', [])
+        print(f"DEBUG: Found {len(calendars)} calendars")
         
         # Fetch events from all calendars
         all_events = fetch_events_from_calendars(service, calendars, start_time, end_time)
+        print(f"DEBUG: Fetched {len(all_events)} total events")
         
         # Sort all events by start time
         all_events.sort(key=lambda x: x['start'])
@@ -250,6 +259,8 @@ def get_calendar_events():
         
     except Exception as e:
         print(f"ERROR getting calendar events: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return []
 
 
@@ -348,7 +359,19 @@ def get_calendar_events_for_range(start_date_str, end_date_str):
 @app.route('/get_events')
 def get_events():
     """API endpoint to get calendar events"""
+    print("DEBUG: /get_events endpoint called")
+    
+    # Check if user is authenticated
+    if 'credentials' not in session:
+        print("DEBUG: No credentials in session")
+        return jsonify({
+            'success': False,
+            'error': 'Not authenticated'
+        })
+    
     events = get_calendar_events()
+    print(f"DEBUG: Retrieved {len(events)} events")
+    
     return jsonify({
         'success': True,
         'events': events

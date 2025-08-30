@@ -635,15 +635,25 @@
 
         // Calendar functions
         function loadEvents() {
+            console.log('DEBUG: loadEvents() called');
             fetch('/get_events')
-                .then(response => response.json())
+                .then(response => {
+                    console.log('DEBUG: Response status:', response.status);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('DEBUG: Response data:', data);
                     if (data.success) {
+                        console.log('DEBUG: Rendering calendar with', data.events.length, 'events');
                         renderCalendar(data.events);
                         renderCalendarLegend(data.events);
+                    } else {
+                        console.error('DEBUG: API returned error:', data.error);
                     }
                 })
-                .catch(error => console.error('Error loading events:', error));
+                .catch(error => {
+                    console.error('DEBUG: Error loading events:', error);
+                });
         }
 
         function renderCalendar(events = []) {

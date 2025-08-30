@@ -160,11 +160,26 @@ def authorize():
 def callback():
     try:
         state = session['state']
-        flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE,
-            scopes=SCOPES,
-            state=state,
-            redirect_uri=REDIRECT_URI)
+        
+        # Use environment variable for Render, file for local development
+        if os.environ.get('RENDER'):
+            # Render or other production environment
+            client_config = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
+            flow = Flow.from_client_config(
+                client_config,
+                scopes=SCOPES,
+                state=state,
+                redirect_uri=REDIRECT_URI
+            )
+        else:
+            # Local development
+            flow = Flow.from_client_secrets_file(
+                CLIENT_SECRETS_FILE,
+                scopes=SCOPES,
+                state=state,
+                redirect_uri=REDIRECT_URI
+            )
+        
         flow.fetch_token(authorization_response=request.url)
 
         credentials = flow.credentials

@@ -12,13 +12,22 @@ import json
 
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key')
 
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+# Set OAuth insecure transport for development
+if os.environ.get('FLASK_ENV') != 'production':
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 CLIENT_SECRETS_FILE = "client_secret.json"
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
-REDIRECT_URI = "https://scheduling-assistant-blan.onrender.com/oauth2callback"
+
+# Dynamic redirect URI based on environment
+if os.environ.get('RENDER'):
+    # Running on Render
+    REDIRECT_URI = "https://scheduling-assistant-blan.onrender.com/oauth2callback"
+else:
+    # Running locally
+    REDIRECT_URI = "http://localhost:8080/oauth2callback"
 
 
 
@@ -698,4 +707,13 @@ def find_available_slots(events, start_time, end_time, query_params):
     return available_slots
 
 if __name__ == '__main__':
-    app.run('localhost', 8080, debug=True)
+    # Get port from environment variable (for Render) or use default
+    port = int(os.environ.get('PORT', 8080))
+    
+    # Set debug mode based on environment
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
+    # Use 0.0.0.0 for Render, localhost for local development
+    host = '0.0.0.0' if os.environ.get('RENDER') else 'localhost'
+    
+    app.run(host=host, port=port, debug=debug)
